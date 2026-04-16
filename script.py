@@ -159,7 +159,7 @@ def main():
 
     cache_session = requests_cache.CachedSession('.cache', expire_after=-1)
     retry_session = retry(cache_session, retries=5, backoff_factor=0.2)
-    openmeteo     = openmeteo_requests.Client(session=retry_session)
+    openmeteo     = openmeteo_requests.Client(session=retry_session) # type: ignore
 
     print(f"\n=== Fetching {len(cities)} city/cities ===")
     saved  = []

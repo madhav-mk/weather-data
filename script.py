@@ -1,10 +1,7 @@
-# USAGE
-# python3 script.py [station id] [start date: YYYY-MM-DD] [end date: YYYY-MM-DD]
-
-
 import subprocess
 import pandas as pd
 import sys
+import os
 
 def to_api_datetime(date_str, end=False):
     from datetime import datetime
@@ -23,6 +20,10 @@ def main():
     start = sys.argv[2]
     end = sys.argv[3]
 
+    # create output directory
+    output_dir = "output"
+    os.makedirs(output_dir, exist_ok=True)
+
     start_fmt = to_api_datetime(start, end=False)
     end_fmt = to_api_datetime(end, end=True)
 
@@ -31,13 +32,14 @@ def main():
         f"?ind={wmo}&start={start_fmt}&end={end_fmt}&lang=eng"
     )
 
-    raw_file = f"{wmo}_raw.csv"
-    clean_file = f"{wmo}_clean.csv"
+    raw_file = os.path.join(output_dir, f"{wmo}_raw.csv")
+    clean_file = os.path.join(output_dir, f"{wmo}_clean.csv")
 
     subprocess.run(["wget", url, "-O", raw_file], check=True)
 
     df = pd.read_csv(raw_file)
 
+    # keep only required columns
     df = df[[
         "Station",
         "Date",
@@ -48,6 +50,7 @@ def main():
         "Wind speed(Km/h)"
     ]]
 
+    # rename columns
     df.columns = [
         "station",
         "date",
@@ -59,6 +62,9 @@ def main():
     ]
 
     df.to_csv(clean_file, index=False)
+
+    # delete raw file after successful conversion
+    os.remove(raw_file)
 
     print(f"Saved → {clean_file}")
     print(f"Rows: {len(df)}")

@@ -1,6 +1,10 @@
+# USAGE
+# python3 script.py [station id] [start date: YYYY-MM-DD] [end date: YYYY-MM-DD]
+
+
 import subprocess
 import pandas as pd
-import numpy as np
+import sys
 
 def to_api_datetime(date_str, end=False):
     from datetime import datetime
@@ -9,22 +13,15 @@ def to_api_datetime(date_str, end=False):
     return dt.strftime("%Y%m%d") + hour
 
 
-def clean_col(series):
-    return (
-        series.astype(str)
-        .str.replace("%", "", regex=False)
-        .str.replace("Hpa", "", regex=False)
-        .str.replace("hPa", "", regex=False)
-        .str.replace("-", "", regex=False)
-        .str.strip()
-        .replace("", np.nan)
-    )
-
-
 def main():
-    wmo = input("WMO ID: ").strip()
-    start = input("Start date (YYYY-MM-DD): ").strip()
-    end = input("End date (YYYY-MM-DD): ").strip()
+    if len(sys.argv) != 4:
+        print("Usage: python3 script.py <WMO_ID> <START_DATE> <END_DATE>")
+        print("Example: python3 script.py 94768 2026-01-01 2026-03-01")
+        sys.exit(1)
+
+    wmo = sys.argv[1]
+    start = sys.argv[2]
+    end = sys.argv[3]
 
     start_fmt = to_api_datetime(start, end=False)
     end_fmt = to_api_datetime(end, end=True)
@@ -39,38 +36,12 @@ def main():
 
     subprocess.run(["wget", url, "-O", raw_file], check=True)
 
-    df = pd.read_csv(raw_file, sep=",", engine="python")
-    df.columns = df.columns.str.strip()
-
-
-    df = df[df["Date"].notna()]
-    df = df[df["Date"] != "Date"]
-
-    df["Temp.(ºC)"] = pd.to_numeric(df["Temp.(ºC)"], errors="coerce")
-
-    df["Rel. Hum.(%)"] = clean_col(df["Rel. Hum.(%)"])
-    df["Pressure/Geopot."] = clean_col(df["Pressure/Geopot."])
-    df["Wind speed(Km/h)"] = clean_col(df["Wind speed(Km/h)"])
-
-    df["Rel. Hum.(%)"] = pd.to_numeric(df["Rel. Hum.(%)"], errors="coerce")
-    df["Pressure/Geopot."] = pd.to_numeric(df["Pressure/Geopot."], errors="coerce")
-    df["Wind speed(Km/h)"] = pd.to_numeric(df["Wind speed(Km/h)"], errors="coerce")
-
-
-    df["Date"] = df["Date"].astype(str).str.strip()
-    df["UTC time"] = df["UTC time"].astype(str).str.strip()
-
-    df["datetime_utc"] = pd.to_datetime(
-        df["Date"] + " " + df["UTC time"],
-        errors="coerce",
-        utc=True
-    )
-
-    df = df[df["datetime_utc"].notna()]
-
+    df = pd.read_csv(raw_file)
 
     df = df[[
-        "datetime_utc",
+        "Station",
+        "Date",
+        "UTC time",
         "Temp.(ºC)",
         "Rel. Hum.(%)",
         "Pressure/Geopot.",
@@ -78,16 +49,18 @@ def main():
     ]]
 
     df.columns = [
-        "datetime_utc",
+        "station",
+        "date",
+        "utc_time",
         "temperature_c",
         "humidity_percent",
-        "pressure_hpa",
+        "pressure",
         "wind_speed_kmh"
     ]
 
     df.to_csv(clean_file, index=False)
 
-    print(f"\nSaved → {clean_file}")
+    print(f"Saved → {clean_file}")
     print(f"Rows: {len(df)}")
 
 
